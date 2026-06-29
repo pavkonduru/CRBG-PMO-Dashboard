@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRBG - Modernization Resource Tracker Prototype</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --bg-soft: #101a2f;
+      --panel: rgba(15, 23, 42, 0.84);
+      --panel-strong: #13213a;
+      --line: rgba(148, 163, 184, 0.18);
+      --text: #e5eefb;
+      --muted: #9eb0ca;
+      --accent: #39b7a6;
+      --accent-2: #f4c95d;
+      --danger: #ef6b73;
+      --success: #4dd4a5;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --font: "Segoe UI", "Aptos", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(57, 183, 166, 0.18), transparent 28%),
+        radial-gradient(circle at 85% 15%, rgba(244, 201, 93, 0.14), transparent 24%),
+        linear-gradient(160deg, #09101c 0%, #0d1728 44%, #09101c 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .shell {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+      gap: 18px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(22, 32, 55, 0.9), rgba(12, 19, 35, 0.92));
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .hero-main {
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-main::after {
+      content: "";
+      position: absolute;
+      inset: auto -80px -80px auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(57, 183, 166, 0.18), transparent 68%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(57, 183, 166, 0.12);
+      color: #8df1e3;
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 3vw, 48px);
+      line-height: 1.04;
+      letter-spacing: -0.03em;
+    }
+
+    .subcopy {
+      margin: 14px 0 0;
+      max-width: 940px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: rgba(148, 163, 184, 0.08);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 999px;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .hero-side {
+      padding: 22px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .persona-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .toggle {
+      padding: 16px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .toggle.active {
+      background: linear-gradient(135deg, rgba(57, 183, 166, 0.18), rgba(57, 183, 166, 0.06));
+      border-color: rgba(57, 183, 166, 0.35);
+      box-shadow: inset 0 0 0 1px rgba(57, 183, 166, 0.14);
+    }
+
+    .toggle-label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 8px;
+    }
+
+    .toggle-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .toggle-copy {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .mini-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .mini-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .mini-row strong { font-size: 14px; }
+    .mini-row span { color: var(--muted); font-size: 13px; }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 14px;
+      margin: 18px 0;
+    }
+
+    .metric {
+      padding: 18px 18px 16px;
+      border-radius: var(--radius-lg);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      min-height: 120px;
+    }
+
+    .metric .label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+    }
+
+    .metric .value {
+      margin-top: 16px;
+      font-size: clamp(28px, 2.4vw, 40px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .metric .delta {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(340px, 0.85fr);
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .section {
+      padding: 22px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-end;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+
+    .section-note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+      max-width: 420px;
+      text-align: right;
+    }
+
+    .bars {
+      display: grid;
+      gap: 12px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 130px 1fr 58px;
+      gap: 12px;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .bar-track {
+      height: 14px;
+      background: rgba(148, 163, 184, 0.12);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), #7ae7a5);
+    }
+
+    .bar-fill.gold { background: linear-gradient(90deg, var(--accent-2), #ffdd86); }
+    .bar-fill.red { background: linear-gradient(90deg, var(--danger), #ff98a0); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+    }
+
+    thead th {
+      text-align: left;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      padding: 13px 12px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+    }
+
+    tbody td {
+      padding: 14px 12px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 0 4px rgba(77, 212, 165, 0.12);
+    }
+
+    .status.inactive .dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(239, 107, 115, 0.12); }
+    .status.in-progress .dot { background: var(--accent-2); box-shadow: 0 0 0 4px rgba(244, 201, 93, 0.12); }
+
+    .split {
+      display: grid;
+      gap: 18px;
+    }
+
+    .template-list,
+    .activity-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .template-item,
+    .activity-item {
+      padding: 15px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .template-item h4,
+    .activity-item h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+
+    .template-item p,
+    .activity-item p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .tag {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(57, 183, 166, 0.1);
+      color: #9af3e7;
+      border: 1px solid rgba(57, 183, 166, 0.18);
+      font-size: 12px;
+    }
+
+    .tag.gold {
+      background: rgba(244, 201, 93, 0.1);
+      color: #ffe29d;
+      border-color: rgba(244, 201, 93, 0.18);
+    }
+
+    .footnote {
+      margin: 18px 2px 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(244, 201, 93, 0.12);
+      color: #ffd77b;
+      font-size: 12px;
+      margin-left: 10px;
+    }
+
+    @media (max-width: 1280px) {
+      .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .hero, .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .shell { padding: 16px; }
+      .metrics { grid-template-columns: 1fr; }
+      .hero-main, .hero-side, .section { padding: 18px; }
+      .bar-row { grid-template-columns: 1fr; }
+      .section-header { flex-direction: column; align-items: flex-start; }
+      .section-note { text-align: left; }
+      thead { display: none; }
+      table, tbody, tr, td { display: block; width: 100%; }
+      tbody td { border-bottom: none; padding: 8px 0; }
+      tbody tr { padding: 14px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.12); }
+      tbody td[data-label]::before {
+        content: attr(data-label) ": ";
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        display: block;
+        margin-bottom: 3px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="card hero-main">
+        <div class="eyebrow">Corebridge PMO Portal Prototype</div>
+        <h1>CRBG - Modernization Resource Tracker</h1>
+        <p class="subcopy">
+          A first-pass portal shape for PMO operations and leadership reporting. This prototype uses the partial workbook data captured so far, plus the three onboarding email templates already identified, while the remaining tracker enrichment stays in progress.
+        </p>
+        <div class="hero-meta">
+          <span class="pill">Lead persona: PMO write access</span>
+          <span class="pill">Viewer persona: Leadership read-only</span>
+          <span class="pill">Data source: <strong>CRBG - Modernization - Resource Tracker (1).xlsx</strong></span>
+          <span class="pill">Template library: 3 onboarding emails</span>
+        </div>
+      </div>
+
+      <div class="card hero-side">
+        <div class="persona-toggle">
+          <div class="toggle active">
+            <div class="toggle-label">Persona</div>
+            <div class="toggle-title">PMO</div>
+            <div class="toggle-copy">Full operational access for create, edit, delete, email triggers, and template maintenance.</div>
+          </div>
+          <div class="toggle">
+            <div class="toggle-label">Persona</div>
+            <div class="toggle-title">Leadership</div>
+            <div class="toggle-copy">Read-only summary for initiative, manager, feedback provider, and active team trends.</div>
+          </div>
+        </div>
+
+        <div class="mini-stack">
+          <div class="mini-row"><strong>Prototype status</strong><span>in-progress data shaping</span></div>
+          <div class="mini-row"><strong>Email template readiness</strong><span>parameterization needed</span></div>
+          <div class="mini-row"><strong>Attachments</strong><span>captured from source .msg files</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="metrics">
+      <div class="metric">
+        <div class="label">Active team members</div>
+        <div class="value">148</div>
+        <div class="delta">Prototype snapshot from workbook counts</div>
+      </div>
+      <div class="metric">
+        <div class="label">Inactive / offboarded</div>
+        <div class="value">26</div>
+        <div class="delta">Visible from current tracker rows</div>
+      </div>
+      <div class="metric">
+        <div class="label">Initiatives surfaced</div>
+        <div class="value">22</div>
+        <div class="delta">Modernization workstreams</div>
+      </div>
+      <div class="metric">
+        <div class="label">Leadership views</div>
+        <div class="value">4</div>
+        <div class="delta">By initiative, manager, provider, status</div>
+      </div>
+      <div class="metric">
+        <div class="label">Email templates</div>
+        <div class="value">3</div>
+        <div class="delta">Parameterized from source .msg files</div>
+      </div>
+      <div class="metric">
+        <div class="label">Attachments preserved</div>
+        <div class="value">8</div>
+        <div class="delta">Across the 3 onboarding templates</div>
+      </div>
+    </section>
+
+    <section class="grid-2">
+      <div class="card section">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Leadership summary shape</h2>
+            <div class="badge">read-only overview</div>
+          </div>
+          <div class="section-note">This section is intentionally structured for leadership scanability: top-line totals on the left and distribution views on the right.</div>
+        </div>
+
+        <div class="bars">
+          <div class="bar-row">
+            <div>By initiative</div>
+            <div class="bar-track"><div class="bar-fill" style="width: 74%"></div></div>
+            <div>74%</div>
+          </div>
+          <div class="bar-row">
+            <div>By manager</div>
+            <div class="bar-track"><div class="bar-fill gold" style="width: 61%"></div></div>
+            <div>61%</div>
+          </div>
+          <div class="bar-row">
+            <div>By feedback provider</div>
+            <div class="bar-track"><div class="bar-fill" style="width: 56%"></div></div>
+            <div>56%</div>
+          </div>
+          <div class="bar-row">
+            <div>Active members</div>
+            <div class="bar-track"><div class="bar-fill" style="width: 88%"></div></div>
+            <div>88%</div>
+          </div>
+          <div class="bar-row">
+            <div>Pending onboarding</div>
+            <div class="bar-track"><div class="bar-fill red" style="width: 18%"></div></div>
+            <div>18%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card section">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Email template library</h2>
+            <div class="badge">parameterized in portal</div>
+          </div>
+          <div class="section-note">The templates already extracted from Outlook messages are here with the attachment behavior preserved for future portal sending.</div>
+        </div>
+
+        <div class="template-list">
+          <div class="template-item">
+            <h4>Welcome to Corebridge- Onboarding Formalities</h4>
+            <p>4 attachments captured. Replace practitioner name, functional lead, workstream, WBS code, role start date, and leadership names.</p>
+            <div class="tag-row">
+              <span class="tag">image001.jpg</span>
+              <span class="tag">image002.png</span>
+              <span class="tag">image003.png</span>
+              <span class="tag gold">CRBG PMO Referrence Document_v2.pdf</span>
+            </div>
+          </div>
+          <div class="template-item">
+            <h4>Action RQD: Onboarding New Deloitte Team Members - Upcoming Access request</h4>
+            <p>2 attachments captured. Parameterize approver, practitioner list, team name, and contact email for the portal.</p>
+            <div class="tag-row">
+              <span class="tag">image001.jpg</span>
+              <span class="tag">image002.png</span>
+            </div>
+          </div>
+          <div class="template-item">
+            <h4>CRBG- GH | Onboarding | Modernization | Basha, Khaleel | 6/29/2026</h4>
+            <p>2 attachments captured. Parameterize team member name, Deloitte email, location, workstream, function, manager, WBS code, and SOW.</p>
+            <div class="tag-row">
+              <span class="tag">image001.jpg</span>
+              <span class="tag">image002.png</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid-2">
+      <div class="card section">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Resource tracker preview</h2>
+            <div class="badge">partial workbook data</div>
+          </div>
+          <div class="section-note">This table shows how the portal will surface the tracker rows in a working view. The in-progress fields can be patched later without changing the page structure.</div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Practitioner</th>
+              <th>Level</th>
+              <th>Email</th>
+              <th>Location</th>
+              <th>Initiative</th>
+              <th>Manager</th>
+              <th>Status</th>
+              <th>Onboarding</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Practitioner">Corey Carriker</td>
+              <td data-label="Level">PMD</td>
+              <td data-label="Email">ccarriker@deloitte.com</td>
+              <td data-label="Location">Minneapolis, US</td>
+              <td data-label="Initiative">Model Conversion</td>
+              <td data-label="Manager">N/A</td>
+              <td data-label="Status"><span class="status"><span class="dot"></span>Active</span></td>
+              <td data-label="Onboarding">2025-10-15</td>
+            </tr>
+            <tr>
+              <td data-label="Practitioner">Beibei Li</td>
+              <td data-label="Level">PMD</td>
+              <td data-label="Email">beili@deloitte.com</td>
+              <td data-label="Location">McLean, US</td>
+              <td data-label="Initiative">Model Conversion</td>
+              <td data-label="Manager">N/A</td>
+              <td data-label="Status"><span class="status"><span class="dot"></span>Active</span></td>
+              <td data-label="Onboarding">2025-10-15</td>
+            </tr>
+            <tr>
+              <td data-label="Practitioner">Charles Deak</td>
+              <td data-label="Level">Senior Manager</td>
+              <td data-label="Email">cdeak@deloitte.com</td>
+              <td data-label="Location">Chicago, US</td>
+              <td data-label="Initiative">Model Conversion</td>
+              <td data-label="Manager">N/A</td>
+              <td data-label="Status"><span class="status"><span class="dot"></span>Active</span></td>
+              <td data-label="Onboarding">2025-10-15</td>
+            </tr>
+            <tr>
+              <td data-label="Practitioner">Yunfei Zhang</td>
+              <td data-label="Level">Manager</td>
+              <td data-label="Email">yunzhang@deloitte.com</td>
+              <td data-label="Location">New York, US</td>
+              <td data-label="Initiative">Traditional Life</td>
+              <td data-label="Manager">Charles Deak</td>
+              <td data-label="Status"><span class="status"><span class="dot"></span>Active</span></td>
+              <td data-label="Onboarding">In progress</td>
+            </tr>
+            <tr>
+              <td data-label="Practitioner">Jason Missimer</td>
+              <td data-label="Level">Consultant</td>
+              <td data-label="Email">jmissimer@deloitte.com</td>
+              <td data-label="Location">New York, US</td>
+              <td data-label="Initiative">Traditional Life</td>
+              <td data-label="Manager">Charles Deak</td>
+              <td data-label="Status"><span class="status in-progress"><span class="dot"></span>Pending</span></td>
+              <td data-label="Onboarding">In progress</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="footnote">Portal behavior to add later: create/edit/delete, email trigger, attachment toggle, audit trail, and filter-by initiative/manager/feedback provider.</div>
+      </div>
+
+      <div class="split">
+        <div class="card section">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">PMO control view</h2>
+              <div class="badge">full write access</div>
+            </div>
+            <div class="section-note">Use this as the operational lane for daily tracker maintenance and onboarding orchestration.</div>
+          </div>
+
+          <div class="activity-list">
+            <div class="activity-item">
+              <h4>Resource tracker entry lifecycle</h4>
+              <p>Create or update practitioner records after RM confirmation, then maintain name, email, mobile, initiative, manager, feedback provider, dates, and status.</p>
+            </div>
+            <div class="activity-item">
+              <h4>Onboarding email execution</h4>
+              <p>Send the three reusable onboarding templates with person-specific parameters and attachment control from the portal.</p>
+            </div>
+            <div class="activity-item">
+              <h4>Leadership reporting</h4>
+              <p>Show team count by initiative, manager, feedback provider, and active/inactive state, plus a summary of onboarding progress.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card section">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">In-progress items</h2>
+              <div class="badge">still being updated</div>
+            </div>
+            <div class="section-note">These are the gaps we can fill once you share the remaining activities and exact reporting expectations.</div>
+          </div>
+
+          <div class="activity-list">
+            <div class="activity-item">
+              <h4>Leadership KPI definition</h4>
+              <p>Final metric list still needs confirmation, including any target/threshold indicators and period-based trends.</p>
+            </div>
+            <div class="activity-item">
+              <h4>Template parameter map</h4>
+              <p>Each email needs a clean field map so the portal can auto-populate names, managers, workstream, WBS, and optional attachments.</p>
+            </div>
+            <div class="activity-item">
+              <h4>Data completion</h4>
+              <p>The workbook contains enough to shape the portal, but some resource fields and workflow status values are still incomplete.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

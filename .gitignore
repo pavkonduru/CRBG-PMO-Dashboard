@@ -1,0 +1,4 @@
+# Exclude large/sensitive files
+*.xlsx
+*.msg
+Email Templates/
