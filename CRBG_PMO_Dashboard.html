@@ -452,12 +452,12 @@ function App(){
   const usInitMap=Object.fromEntries(byInitUS);
   const usiInitMap=Object.fromEntries(byInitUSI);
 
-  const filtered=React.useMemo(()=>{let d=filter==="All"?resources:filter==="Active"?resources.filter(r=>r.status!=="Offboarded"):filter==="Offboarded"?resources.filter(r=>r.status==="Offboarded"):resources;if(search.trim()){const s=search.toLowerCase();d=d.filter(r=>((r.name||"")+(r.email||"")+(r.location||"")+(r.initiative||"")+(r.manager||"")+(r.function||"")+(r.crbgManager||"")).toLowerCase().includes(s))}if(sort.field){d=[...d].sort((a,b)=>{const va=String(a[sort.field]||"").toLowerCase(),vb=String(b[sort.field]||"").toLowerCase();if(va<vb)return sort.asc?-1:1;if(va>vb)return sort.asc?1:-1;return 0})}return d},[resources,filter,search,sort]);
+  const filtered=React.useMemo(()=>{let d=filter==="All"?resources:filter==="Active"?resources.filter(r=>r.status!=="Offboarded"):filter==="Offboarded"?resources.filter(r=>r.status==="Offboarded"):filter==="US"?resources.filter(r=>r.status!=="Offboarded"&&(r.region||"").toUpperCase()==="US"):filter==="USI"?resources.filter(r=>r.status!=="Offboarded"&&(r.region||"").toUpperCase()==="USI"):resources;if(search.trim()){const s=search.toLowerCase();d=d.filter(r=>((r.name||"")+(r.email||"")+(r.location||"")+(r.initiative||"")+(r.manager||"")+(r.function||"")+(r.crbgManager||"")).toLowerCase().includes(s))}if(sort.field){d=[...d].sort((a,b)=>{const va=String(a[sort.field]||"").toLowerCase(),vb=String(b[sort.field]||"").toLowerCase();if(va<vb)return sort.asc?-1:1;if(va>vb)return sort.asc?1:-1;return 0})}return d},[resources,filter,search,sort]);
 
   const sel=resources.find(r=>r.id===selId);
   const maxInit=Math.max(...byInitiative.map(x=>x[1]),1);
   const maxLoc=Math.max(...byLocation.map(x=>x[1]),1);
-  const NAV=[{id:"overview",icon:"\uD83D\uDCCA",label:"PMO Dashboard"},{id:"roster",icon:"\uD83D\uDC65",label:"Resource Tracker"},{id:"usiview",icon:"\uD83C\uDF0E",label:"US & USI View"},{id:"analytics",icon:"\uD83D\uDCC8",label:"Analytics & Reports"}];
+  const NAV=[{id:"overview",icon:"\uD83D\uDCCA",label:"PMO Dashboard"},{id:"roster",icon:"\uD83D\uDC65",label:"Resource Tracker"},{id:"analytics",icon:"\uD83D\uDCC8",label:"Analytics & Reports"}];
   if(!loaded)return <div style={{display:"flex",justifyContent:"center",alignItems:"center",height:"100vh",color:"#555"}}>Loading portal...</div>;
 
   return <div style={{display:"flex",flexDirection:"column",minHeight:"100vh"}}>
@@ -513,7 +513,7 @@ function App(){
         {page==="roster"&&<>
           <SectionTitle icon="\uD83D\uDC65" title="Resource Tracker" sub={total+" entries from workbook"} right={isAdmin&&<button onClick={()=>setShowAdd(true)} style={{padding:"6px 14px",background:"#86BC25",color:"#fff",border:"none",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer"}}>+ Add Resource</button>}/>
           <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:16,alignItems:"center"}}>
-            {["All","Active","Offboarded"].map(f=><button key={f} onClick={()=>setFilter(f)} style={{padding:"6px 16px",background:filter===f?"#282728":"#fff",color:filter===f?"#fff":"#555",border:"1px solid #E6E6E6",borderRadius:20,fontSize:12,fontWeight:filter===f?700:400,cursor:"pointer"}}>{f} ({f==="All"?total:f==="Active"?activeCount:offboarded})</button>)}
+            {[["All","#282728",total],["Active","#86BC25",activeCount],["Offboarded","#888",offboarded],["US","#00A3E0",usCount],["USI","#005587",usiCount]].map(([f,ac,cnt])=><button key={f} onClick={()=>setFilter(f)} style={{padding:"6px 16px",background:filter===f?ac:"#fff",color:filter===f?"#fff":"#555",border:"1px solid "+(filter===f?ac:"#E6E6E6"),borderRadius:20,fontSize:12,fontWeight:filter===f?700:400,cursor:"pointer"}}>{f} ({cnt})</button>)}
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name, email, initiative, manager..." style={{padding:"6px 14px",borderRadius:20,border:"1px solid #E6E6E6",fontSize:12,width:300}}/>
             <div style={{marginLeft:"auto",fontSize:11,color:"#888"}}>{filtered.length} of {total}</div>
           </div>
@@ -543,32 +543,6 @@ function App(){
           </div>
         </>}
 
-        {page==="usiview"&&<>
-          <SectionTitle icon="\uD83C\uDF0E" title="US & USI View" sub="Side-by-side summary of active practitioners by region"/>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24}}>
-            {[{label:"US",count:usCount,color:"#00A3E0",pct:activeCount?Math.round(usCount/activeCount*100):0},{label:"USI",count:usiCount,color:"#005587",pct:activeCount?Math.round(usiCount/activeCount*100):0}].map((reg,ri)=><div key={ri} style={{background:"#fff",borderRadius:10,padding:24,borderTop:"4px solid "+reg.color,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}><div style={{fontSize:32,fontWeight:700,color:reg.color}}>{reg.count}</div><div style={{fontSize:16,fontWeight:700,marginTop:2}}>{reg.label} Active Practitioners</div><div style={{fontSize:12,color:"#888",marginTop:4}}>{reg.pct}% of total active team</div></div>)}
-          </div>
-          <div style={{background:"#fff",borderRadius:10,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",overflow:"hidden",marginBottom:20}}>
-            <div style={{padding:"14px 20px",background:"#282728",display:"flex",gap:0}}>
-              <div style={{flex:3,fontSize:12,fontWeight:700,color:"#fff"}}>Initiative</div>
-              <div style={{flex:1,textAlign:"center",fontSize:12,fontWeight:700,color:"#3FC3EC"}}>US</div>
-              <div style={{flex:1,textAlign:"center",fontSize:12,fontWeight:700,color:"#86EB22"}}>USI</div>
-              <div style={{flex:1,textAlign:"center",fontSize:12,fontWeight:700,color:"#A0A0A0"}}>Total</div>
-            </div>
-            {allInitiatives.map((init,i)=>{const us=usInitMap[init]||0;const usi=usiInitMap[init]||0;const tot=us+usi;return <div key={i} style={{display:"flex",gap:0,padding:"10px 20px",background:i%2===0?"#fff":"#FAFAFA",borderBottom:"1px solid #F0F0F0",alignItems:"center"}}>
-              <div style={{flex:3,fontSize:12,fontWeight:600}}>{init}</div>
-              <div style={{flex:1,textAlign:"center"}}>{us?<span style={{background:"#E3F2FD",color:"#00A3E0",borderRadius:12,padding:"2px 10px",fontSize:12,fontWeight:700}}>{us}</span>:<span style={{color:"#ddd",fontSize:12}}>&mdash;</span>}</div>
-              <div style={{flex:1,textAlign:"center"}}>{usi?<span style={{background:"#E8F5E0",color:"#276221",borderRadius:12,padding:"2px 10px",fontSize:12,fontWeight:700}}>{usi}</span>:<span style={{color:"#ddd",fontSize:12}}>&mdash;</span>}</div>
-              <div style={{flex:1,textAlign:"center",fontSize:12,fontWeight:700,color:"#555"}}>{tot}</div>
-            </div>})}
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:16}}>
-            <div style={{background:"#fff",borderRadius:10,padding:18,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}><div style={{fontSize:12,fontWeight:700,marginBottom:10,color:"#00A3E0",borderBottom:"2px solid #00A3E0",paddingBottom:6}}>US &mdash; By Location</div>{byLocUS.map(([l,c],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 0",borderBottom:"1px solid #F5F5F5"}}><span style={{fontWeight:600}}>{l}</span><span style={{fontWeight:700,color:"#00A3E0"}}>{c}</span></div>)}{!byLocUS.length&&<div style={{color:"#888",fontSize:11}}>No data</div>}</div>
-            <div style={{background:"#fff",borderRadius:10,padding:18,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}><div style={{fontSize:12,fontWeight:700,marginBottom:10,color:"#005587",borderBottom:"2px solid #005587",paddingBottom:6}}>USI &mdash; By Location</div>{byLocUSI.map(([l,c],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 0",borderBottom:"1px solid #F5F5F5"}}><span style={{fontWeight:600}}>{l}</span><span style={{fontWeight:700,color:"#005587"}}>{c}</span></div>)}{!byLocUSI.length&&<div style={{color:"#888",fontSize:11}}>No data</div>}</div>
-            <div style={{background:"#fff",borderRadius:10,padding:18,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}><div style={{fontSize:12,fontWeight:700,marginBottom:10,color:"#00A3E0",borderBottom:"2px solid #00A3E0",paddingBottom:6}}>US &mdash; By Level</div>{byLevelUS.map(([l,c],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 0",borderBottom:"1px solid #F5F5F5"}}><span style={{fontWeight:600}}>{l}</span><span style={{fontWeight:700,color:"#00A3E0"}}>{c}</span></div>)}</div>
-            <div style={{background:"#fff",borderRadius:10,padding:18,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}><div style={{fontSize:12,fontWeight:700,marginBottom:10,color:"#005587",borderBottom:"2px solid #005587",paddingBottom:6}}>USI &mdash; By Level</div>{byLevelUSI.map(([l,c],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 0",borderBottom:"1px solid #F5F5F5"}}><span style={{fontWeight:600}}>{l}</span><span style={{fontWeight:700,color:"#005587"}}>{c}</span></div>)}</div>
-          </div>
-        </>}
 
         {page==="analytics"&&<>
           <SectionTitle icon="\uD83D\uDCC8" title="Analytics & Reports" sub="Breakdowns by initiative, manager, feedback provider, region, location, and level"/>
