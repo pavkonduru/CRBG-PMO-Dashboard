@@ -10,6 +10,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<script src="email_assets.js"></script>
+<script src="email_templates.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:'Open Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F5F5F5;color:#282728;zoom:0.85;}
@@ -208,67 +210,99 @@ const DEFAULT_RESOURCES=[
   {id:179,name:"Anshul Sawai",email:"asawai@deloitte.com",level:"Senior Manager",region:"US",location:"Tampa",status:"Onboarded",onboardingDate:"2025-06-01",offboardingDate:"",pmdLead:"Firdaus Khalil",smLead:"Anshul Sawai",manager:"Firdaus Khalil",feedbackProvider:"",initiativeCluster:"ADR / Data and Reporting",initiative:"Overall",function:"ADR / Data and Reporting",subFunction:"ADR / Data and Reporting",crbgManager:"Senthil Nagarajan",vdi:"Yes",crbgEmail:"anshul.sawai@corebridgefinancial.com",mobile:"",wbsCode:"",category:"Modernization",active:"Yes"},
 ];
 
-/* ══════════ EMAIL GENERATORS ══════════ */
-// Helper: build a mailto: URL that Outlook renders correctly.
-// - TO address must NOT be encodeURIComponent'd (that encodes @ → %40, breaking some clients).
-// - Body line breaks must be \r\n so encodeURIComponent produces %0D%0A (Outlook requirement).
-const _nl="\r\n";
+/* ══════════ EMAIL GENERATORS (.eml — HTML + branding + attachments) ══════════ */
+/* mailto: can only do plain text with no attachments. To reproduce the real
+   Corebridge purple-branded templates WITH logos and the PDF, we build a
+   proper MIME .eml file the user double-clicks to open in Outlook as a draft. */
+const PMO_TEAM="ususicrbgghpmoteam@deloitte.com";
+// Sandeep Marthala (SM Lead) is always CC'd in common, plus the PMO team. Add more recipients beyond this as needed before sending.
+const DEFAULT_CC='"Marthala, Sandeep" <smarthala@deloitte.com>, ususicrbgghpmoteam@deloitte.com';
+const PURPLE="#7030A0";
+const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const firstName=r=>{const n=r.name||"";return n.includes(",")?(n.split(",")[1]||"").trim()||n.split(",")[0].trim():n.split(" ")[0];};
+const fmtUS=d=>{if(!d)return"[TBD]";const dt=new Date(d);if(isNaN(dt))return d;return(dt.getMonth()+1)+"/"+dt.getDate()+"/"+dt.getFullYear();};
+// Fill {{TOKEN}} placeholders in the original-Outlook-markup templates (email_templates.js)
+const fillTpl=(tpl,map)=>tpl.replace(/{{(\w+)}}/g,(_,k)=>k in map?map[k]:"{{"+k+"}}");
+const TPL=()=>window.EMAIL_TEMPLATES||{};
+
 const emailWelcome=(r)=>{
-  const to=r.email||"";
-  const cc="ususicrbgghpmoteam@deloitte.com";
-  const sub=encodeURIComponent("Welcome to Corebridge- Onboarding Formalities");
-  const name1=r.name.includes(",")?r.name.split(",")[0].trim():r.name.split(" ")[0];
-  const body=encodeURIComponent(
-    "Hi "+name1+" - Welcome to Corebridge Team!"+_nl+_nl+
-    "Corebridge Financial is a leading provider of retirement, life insurance, and institutional solutions, empowering individuals and organizations to secure their financial futures."+_nl+_nl+
-    "You will be a part of \""+(r.initiative||"Modernization")+"\" workstream."+_nl+_nl+
-    "Please follow the below steps to complete your on-boarding:"+_nl+_nl+
-    "1. Alignment & Leads: You will be part of the "+(r.function||"ADR / Data and Reporting")+" function. Your functional lead will be "+(r.manager||"[TBD]")+"."+_nl+_nl+
-    "2. Charge Code: Please check with your Function lead on the WBS to update both MySource & DTE."+_nl+_nl+
-    "3. Role Start: Your role start date is "+(r.onboardingDate||"[TBD]")+". Please charge your hours in DTE starting this date."+_nl+_nl+
-    "4. Know your Leadership: The below links will help you understand the leadership structure."+_nl+_nl+
-    "If you have any questions at any point, please reach out- US USI CRBG GH PMO Team (ususicrbgghpmoteam@deloitte.com)."+_nl+_nl+
-    "Thank you,"+_nl+
-    "CRBG PMO Team"+_nl+_nl+
-    "[Please attach: CRBG PMO Referrence Document_v2.pdf]"
-  );
-  return "mailto:"+to+"?cc="+encodeURIComponent(cc)+"&subject="+sub+"&body="+body;
+  const html=fillTpl(TPL().welcome||"",{
+    NAME:esc(firstName(r)),
+    INITIATIVE:esc(r.initiative||"Modernization"),
+    FUNCTION:esc(r.function||"ADR / Data and Reporting"),
+    LEAD:esc(r.manager||r.smLead||"[TBD]"),
+    START:fmtUS(r.onboardingDate)
+  });
+  return {to:r.email||"",cc:DEFAULT_CC,subject:"Welcome to Corebridge- Onboarding Formalities",
+    html,inline:["logo1","logo2","docx"],attachments:["pdf"]};
 };
+
 const emailAccessRequest=(r)=>{
-  const cc="ususicrbgghpmoteam@deloitte.com";
-  const sub=encodeURIComponent("Action RQD: Onboarding New Deloitte Team Members - Upcoming Access request");
-  const body=encodeURIComponent(
-    "Hi "+(r.crbgManager||"[Approver Name]")+","+_nl+_nl+
-    "I hope this message finds you well!"+_nl+_nl+
-    "I wanted to let you know that the below mentioned practitioners will be joining the "+(r.function||"ADR / Data and Reporting")+" team. In the coming days, you will receive requests to approve credentials and system access relevant for their role. Request you to please assist in approving the same."+_nl+_nl+
-    "Practitioner Name"+_nl+
-    r.name+_nl+_nl+
-    "If you have any questions at any point, please reach out- US USI CRBG GH PMO Team (ususicrbgghpmoteam@deloitte.com)."+_nl+_nl+
-    "Thank you,"+_nl+
-    "CRBG PMO Team"
-  );
-  return "mailto:ususicrbgghpmoteam@deloitte.com?cc="+encodeURIComponent(cc)+"&subject="+sub+"&body="+body;
+  // single practitioner row, matching the original purple-bordered cell styling
+  const rows="<tr style='height:14.5pt'><td width=160 nowrap valign=bottom style='width:120.25pt;border:solid windowtext 1.0pt;border-top:none;padding:0in 5.4pt 0in 5.4pt;height:14.5pt'><p class=MsoNormal><span style='font-size:11.0pt;mso-ligatures:none'>"+esc(r.name)+"<span style='color:black'><o:p></o:p></span></span></p></td></tr>";
+  const html=fillTpl(TPL().access||"",{
+    CRBGMGR:esc(r.crbgManager||"[Approver Name]"),
+    FUNCTION:esc(r.function||"ADR / Data and Reporting"),
+    ROWS:rows
+  });
+  return {to:"",cc:DEFAULT_CC,subject:"Action RQD: Onboarding New Deloitte Team Members - Upcoming Access request",
+    html,inline:["logo1","logo2"],attachments:[]};
 };
+
 const emailOnboardingNotification=(r)=>{
-  const cc="ususicrbgghpmoteam@deloitte.com";
-  const today=new Date().toLocaleDateString("en-US",{month:"numeric",day:"numeric",year:"numeric"});
-  const sub=encodeURIComponent("CRBG- GH | Onboarding | "+(r.initiative||"Modernization")+" | "+r.name+" | "+today);
-  const body=encodeURIComponent(
-    "Hi Team,"+_nl+_nl+
-    "We have a new team member getting onboarded. The details of the same are placed below. Could you please initiate the onboarding:"+_nl+_nl+
-    "Name                    \t"+r.name+_nl+
-    "Deloitte Email ID       \t"+r.email+_nl+
-    "Location                \t"+(r.location||"[TBD]")+_nl+
-    "Workstream              \t"+(r.initiative||"Modernization")+_nl+
-    "Function/Sub-Function   \t"+(r.function||"ADR / Data and Reporting")+_nl+
-    "CRBG Manager Name       \t"+(r.crbgManager||"[TBD]")+_nl+_nl+
-    "WBS Code: "+(r.wbsCode||"COR02505-01")+_nl+
-    "SOW: CRBFTQ00000932"+_nl+_nl+
-    "If you have any questions at any point, please reach out- US USI CRBG GH PMO Team (ususicrbgghpmoteam@deloitte.com)."+_nl+_nl+
-    "Thank you,"+_nl+
-    "CRBG PMO Team"
-  );
-  return "mailto:ususicrbgghpmoteam@deloitte.com?cc="+encodeURIComponent(cc)+"&subject="+sub+"&body="+body;
+  const today=fmtUS(new Date().toISOString().slice(0,10));
+  const loc=(r.region?r.region+" - ":"")+(r.location||"[TBD]");
+  // data row matching the original 6-column purple table
+  const cell=(w,sw,val,first)=>"<td width="+w+" valign=top style='width:"+sw+";border:solid "+PURPLE+" 1.0pt;border-top:none;"+(first?"":"border-left:none;")+"padding:0in 5.4pt 0in 5.4pt;height:13.85pt'><p class=MsoNormal><span style='font-size:11.0pt'>"+val+"<span style='color:black'><o:p></o:p></span></span></p></td>";
+  const row="<tr style='height:13.85pt'>"+
+    cell(112,"84.0pt",esc(r.name),true)+
+    cell(186,"139.5pt","<a href='mailto:"+esc(r.email)+"'>"+esc(r.email)+"</a>")+
+    cell(120,"1.25in",esc(loc))+
+    cell(120,"1.25in",esc(r.initiative||"Modernization"))+
+    cell(186,"139.5pt",esc(r.function||"ADR / Data and Reporting"))+
+    cell(126,"94.5pt",esc(r.crbgManager||"[TBD]"))+
+  "</tr>";
+  const html=fillTpl(TPL().notify||"",{ROW:row});
+  return {to:"DeloitteCorebridgeOnboarding@deloitte.com",cc:DEFAULT_CC,
+    subject:"CRBG- GH | Onboarding | "+(r.initiative||"Modernization")+" | "+r.name+" | "+today,
+    html,inline:["logo1","logo2"],attachments:[]};
+};
+
+/* ── MIME .eml builder ── */
+const _b64utf8=s=>btoa(unescape(encodeURIComponent(s)));
+const _b64lines=b=>b.replace(/.{1,76}/g,"$&\r\n");
+const _mimePart=(asset,disp)=>{
+  const a=window.EMAIL_ASSETS[asset];
+  let h="Content-Type: "+a.mime+(a.name?'; name="'+a.name+'"':"")+"\r\n";
+  h+="Content-Transfer-Encoding: base64\r\n";
+  if(disp==="inline")h+="Content-ID: <"+a.cid+">\r\nContent-Disposition: inline; filename=\""+a.name+"\"\r\n";
+  else h+="Content-Disposition: attachment; filename=\""+a.name+"\"\r\n";
+  return h+"\r\n"+_b64lines(a.b64);
+};
+const buildEml=(cfg)=>{
+  const MIX="MIXED_"+cfg.subject.length, REL="RELATED_"+cfg.html.length;
+  let m="";
+  m+=(cfg.to?"To: "+cfg.to+"\r\n":"");
+  m+=(cfg.cc?"Cc: "+cfg.cc+"\r\n":"");
+  m+="Subject: "+cfg.subject+"\r\n";
+  m+="X-Unsent: 1\r\n";  // tells Outlook to open as an editable, sendable draft
+  m+="MIME-Version: 1.0\r\n";
+  const hasAtt=(cfg.attachments||[]).length>0;
+  if(hasAtt){m+='Content-Type: multipart/mixed; boundary="'+MIX+'"\r\n\r\n--'+MIX+'\r\n';}
+  m+='Content-Type: multipart/related; boundary="'+REL+'"\r\n\r\n';
+  m+='--'+REL+'\r\nContent-Type: text/html; charset="utf-8"\r\nContent-Transfer-Encoding: base64\r\n\r\n'+_b64lines(_b64utf8(cfg.html))+'\r\n';
+  (cfg.inline||[]).forEach(a=>{m+='--'+REL+'\r\n'+_mimePart(a,"inline")+'\r\n';});
+  m+='--'+REL+'--\r\n';
+  if(hasAtt){(cfg.attachments||[]).forEach(a=>{m+='--'+MIX+'\r\n'+_mimePart(a,"attachment")+'\r\n';});m+='--'+MIX+'--\r\n';}
+  return m;
+};
+const sendEmail=(cfg)=>{
+  if(!window.EMAIL_ASSETS){alert("email_assets.js not loaded — keep it in the same folder as this file.");return;}
+  const blob=new Blob([buildEml(cfg)],{type:"message/rfc822"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=cfg.subject.replace(/[\\/:*?"<>|]/g,"_").slice(0,80)+".eml";a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
 };
 
 /* ══════════ SQLite DB LAYER ══════════ */
@@ -393,7 +427,7 @@ const ResourceModal=({resource,onClose,onSave,onDelete,isAdmin})=>{
         </div>
       </div>
       <div style={{display:"flex",borderBottom:"1px solid #E6E6E6",flexWrap:"wrap"}}>{[{l:"Initiative",v:e.initiative||"\u2014"},{l:"Status",v:e.status||"\u2014"},{l:"Region",v:e.region||"\u2014"},{l:"Level",v:e.level||"\u2014"}].map((s,i)=><div key={i} style={{flex:1,padding:"12px 14px",borderRight:i<3?"1px solid #E6E6E6":"none",textAlign:"center",minWidth:100}}><div style={{fontSize:10,color:"#888",textTransform:"uppercase",fontWeight:600}}>{s.l}</div><div style={{fontSize:14,fontWeight:700,marginTop:2}}>{s.v}</div></div>)}</div>
-      {isAdmin&&e.email&&<div style={{padding:"14px 24px",background:"#F9F9F9",borderBottom:"1px solid #E6E6E6"}}><div style={{fontSize:11,fontWeight:700,color:"#555",textTransform:"uppercase",marginBottom:8}}>Send Onboarding Emails</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a href={emailWelcome(e)} target="_blank" rel="noopener" style={{padding:"7px 14px",background:"#86BC25",color:"#fff",borderRadius:6,fontSize:11,fontWeight:700,textDecoration:"none"}}>&#x1F4E7; Welcome</a><a href={emailAccessRequest(e)} target="_blank" rel="noopener" style={{padding:"7px 14px",background:"#00A3E0",color:"#fff",borderRadius:6,fontSize:11,fontWeight:700,textDecoration:"none"}}>&#x1F511; Access Request</a><a href={emailOnboardingNotification(e)} target="_blank" rel="noopener" style={{padding:"7px 14px",background:"#005587",color:"#fff",borderRadius:6,fontSize:11,fontWeight:700,textDecoration:"none"}}>&#x1F4CB; Notification</a></div></div>}
+      {isAdmin&&e.email&&<div style={{padding:"14px 24px",background:"#F9F9F9",borderBottom:"1px solid #E6E6E6"}}><div style={{fontSize:11,fontWeight:700,color:"#555",textTransform:"uppercase",marginBottom:8}}>Send Onboarding Emails</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button onClick={()=>sendEmail(emailWelcome(e))} style={{padding:"7px 14px",background:"#86BC25",color:"#fff",borderRadius:6,fontSize:11,fontWeight:700,border:"none",cursor:"pointer"}}>&#x1F4E7; Welcome</button><button onClick={()=>sendEmail(emailAccessRequest(e))} style={{padding:"7px 14px",background:"#00A3E0",color:"#fff",borderRadius:6,fontSize:11,fontWeight:700,border:"none",cursor:"pointer"}}>&#x1F511; Access Request</button><button onClick={()=>sendEmail(emailOnboardingNotification(e))} style={{padding:"7px 14px",background:"#005587",color:"#fff",borderRadius:6,fontSize:11,fontWeight:700,border:"none",cursor:"pointer"}}>&#x1F4CB; Notification</button></div><div style={{fontSize:10,color:"#888",marginTop:6}}>Downloads a .eml &mdash; double-click it to open the formatted draft in Outlook.</div></div>}
       <div style={{display:"flex",borderBottom:"1px solid #E6E6E6"}}>{tabs.map(t=><button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:"10px 0",fontSize:12,fontWeight:tab===t?700:400,color:tab===t?"#86BC25":"#555",background:"none",border:"none",borderBottom:tab===t?"3px solid #86BC25":"3px solid transparent",cursor:"pointer",textTransform:"uppercase",letterSpacing:"0.05em"}}>{t==="edit"?"&#x270F; Edit Record":t}</button>)}</div>
       <div style={{padding:24}}>
         {tab==="overview"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>{[{l:"Function",v:e.function},{l:"Sub-Function",v:e.subFunction},{l:"Manager",v:e.manager},{l:"Feedback Provider",v:e.feedbackProvider},{l:"CRBG Manager",v:e.crbgManager},{l:"PMD Lead",v:e.pmdLead},{l:"SM Lead",v:e.smLead},{l:"Onboarding Date",v:fmtDate(e.onboardingDate)},{l:"Offboarding Date",v:fmtDate(e.offboardingDate)},{l:"WBS Code",v:e.wbsCode},{l:"VDI Access",v:e.vdi},{l:"Category",v:e.category},{l:"CRBG Email",v:e.crbgEmail},{l:"Mobile",v:e.mobile}].map((x,i)=><div key={i} style={{padding:10,background:"#F9F9F9",borderRadius:6}}><div style={{fontSize:10,color:"#888",textTransform:"uppercase",fontWeight:600}}>{x.l}</div><div style={{fontSize:13,fontWeight:600,marginTop:2}}>{x.v||"\u2014"}</div></div>)}</div>}
@@ -424,7 +458,7 @@ const AddModal=({onClose,onAdd,nid})=>{
   const [step,setStep]=React.useState(1);
   const tf=(l,k,t="text")=><div style={{marginBottom:12}}><label style={{fontSize:11,color:"#555",fontWeight:600,display:"block",marginBottom:3,textTransform:"uppercase"}}>{l}</label><input type={t} value={fm[k]||""} onChange={e=>setFm({...fm,[k]:e.target.value})} style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #E6E6E6",fontSize:13,boxSizing:"border-box"}}/></div>;
   const doAdd=()=>{if(fm.name.trim()){onAdd(fm);setStep(2)}};
-  if(step===2){return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:200,display:"flex",justifyContent:"center",alignItems:"center"}}><div style={{background:"#fff",borderRadius:12,width:"100%",maxWidth:520,boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}}><div style={{background:"#86BC25",padding:"24px",borderRadius:"12px 12px 0 0",textAlign:"center"}}><div style={{fontSize:36}}>&check;</div><div style={{color:"#fff",fontSize:18,fontWeight:700,marginTop:4}}>{fm.name} Added!</div></div><div style={{padding:24}}><div style={{fontSize:14,fontWeight:700,marginBottom:12}}>Send Onboarding Emails</div><div style={{fontSize:12,color:"#555",lineHeight:1.6,marginBottom:16}}>Click each button to open the pre-filled email in Outlook.</div><div style={{display:"flex",flexDirection:"column",gap:10}}><a href={emailWelcome(fm)} target="_blank" rel="noopener" style={{padding:"12px 20px",background:"#86BC25",color:"#fff",borderRadius:8,fontSize:13,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18}}>&#x1F4E7;</span><div><div>1. Welcome &amp; Onboarding Formalities</div><div style={{fontSize:10,fontWeight:400,opacity:0.9,marginTop:2}}>Attach: CRBG PMO Referrence Document_v2.pdf</div></div></a><a href={emailAccessRequest(fm)} target="_blank" rel="noopener" style={{padding:"12px 20px",background:"#00A3E0",color:"#fff",borderRadius:8,fontSize:13,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18}}>&#x1F511;</span><div><div>2. Access Request to CRBG Manager</div></div></a><a href={emailOnboardingNotification(fm)} target="_blank" rel="noopener" style={{padding:"12px 20px",background:"#005587",color:"#fff",borderRadius:8,fontSize:13,fontWeight:700,textDecoration:"none",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:18}}>&#x1F4CB;</span><div><div>3. Onboarding Notification to Team</div></div></a></div></div><div style={{padding:"12px 24px 20px",display:"flex",justifyContent:"center",borderTop:"1px solid #E6E6E6"}}><button onClick={onClose} style={{padding:"8px 24px",background:"#F5F5F5",border:"1px solid #E6E6E6",borderRadius:6,fontSize:13,cursor:"pointer"}}>Done</button></div></div></div>}
+  if(step===2){return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:200,display:"flex",justifyContent:"center",alignItems:"center"}}><div style={{background:"#fff",borderRadius:12,width:"100%",maxWidth:520,boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}}><div style={{background:"#86BC25",padding:"24px",borderRadius:"12px 12px 0 0",textAlign:"center"}}><div style={{fontSize:36}}>&check;</div><div style={{color:"#fff",fontSize:18,fontWeight:700,marginTop:4}}>{fm.name} Added!</div></div><div style={{padding:24}}><div style={{fontSize:14,fontWeight:700,marginBottom:12}}>Send Onboarding Emails</div><div style={{fontSize:12,color:"#555",lineHeight:1.6,marginBottom:16}}>Click each button to download a formatted .eml &mdash; double-click it to open the draft in Outlook (branding, tables &amp; PDF included), review, and Send.</div><div style={{display:"flex",flexDirection:"column",gap:10}}><button onClick={()=>sendEmail(emailWelcome(fm))} style={{padding:"12px 20px",background:"#86BC25",color:"#fff",borderRadius:8,fontSize:13,fontWeight:700,border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}><span style={{fontSize:18}}>&#x1F4E7;</span><div><div>1. Welcome &amp; Onboarding Formalities</div><div style={{fontSize:10,fontWeight:400,opacity:0.9,marginTop:2}}>PDF auto-attached: CRBG PMO Referrence Document_v2.pdf</div></div></button><button onClick={()=>sendEmail(emailAccessRequest(fm))} style={{padding:"12px 20px",background:"#00A3E0",color:"#fff",borderRadius:8,fontSize:13,fontWeight:700,border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}><span style={{fontSize:18}}>&#x1F511;</span><div><div>2. Access Request to CRBG Manager</div></div></button><button onClick={()=>sendEmail(emailOnboardingNotification(fm))} style={{padding:"12px 20px",background:"#005587",color:"#fff",borderRadius:8,fontSize:13,fontWeight:700,border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}><span style={{fontSize:18}}>&#x1F4CB;</span><div><div>3. Onboarding Notification to Team</div></div></button></div></div><div style={{padding:"12px 24px 20px",display:"flex",justifyContent:"center",borderTop:"1px solid #E6E6E6"}}><button onClick={onClose} style={{padding:"8px 24px",background:"#F5F5F5",border:"1px solid #E6E6E6",borderRadius:6,fontSize:13,cursor:"pointer"}}>Done</button></div></div></div>}
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:200,display:"flex",justifyContent:"center",alignItems:"flex-start",paddingTop:40,overflowY:"auto"}}><div style={{background:"#fff",borderRadius:12,width:"100%",maxWidth:560,boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}}><div style={{background:"#282728",padding:"16px 24px",borderRadius:"12px 12px 0 0"}}><div style={{color:"#fff",fontSize:16,fontWeight:700}}>Add New Resource</div><div style={{color:"#A0A0A0",fontSize:11,marginTop:2}}>3 onboarding emails will be triggered after adding</div></div><div style={{padding:24}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>{tf("Full Name *","name")}{tf("Email *","email")}{tf("Mobile","mobile")}{tf("Level","level")}{tf("Region","region")}{tf("Location","location")}{tf("Initiative","initiative")}{tf("Function","function")}{tf("Manager","manager")}{tf("Feedback Provider","feedbackProvider")}{tf("CRBG Manager","crbgManager")}{tf("Status","status")}{tf("Onboarding Date","onboardingDate","date")}{tf("WBS Code","wbsCode")}</div></div><div style={{padding:"12px 24px 20px",display:"flex",justifyContent:"flex-end",gap:10,borderTop:"1px solid #E6E6E6"}}><button onClick={onClose} style={{padding:"8px 20px",background:"#F5F5F5",border:"1px solid #E6E6E6",borderRadius:6,fontSize:13,cursor:"pointer"}}>Cancel</button><button onClick={doAdd} style={{padding:"8px 20px",background:fm.name.trim()?"#86BC25":"#ccc",color:"#fff",border:"none",borderRadius:6,fontSize:13,fontWeight:700,cursor:fm.name.trim()?"pointer":"not-allowed"}}>Add &amp; Send Emails &rarr;</button></div></div></div>
 };
 
@@ -692,7 +726,7 @@ function App(){
                 {isAdmin&&<td style={{padding:"10px 6px",whiteSpace:"nowrap"}}><div style={{display:"flex",gap:3}}>
                   <button onClick={()=>setSelId(r.id)} title="Edit Record" style={{padding:"3px 7px",background:"#86BC25",color:"#fff",borderRadius:4,fontSize:10,fontWeight:700,border:"none",cursor:"pointer"}}>&#x270F;</button>
                   <button onClick={()=>{if(confirm("Delete "+r.name+"? This cannot be undone."))deleteRes(r.id)}} title="Delete Entry" style={{padding:"3px 7px",background:"#DA291C",color:"#fff",borderRadius:4,fontSize:10,fontWeight:700,border:"none",cursor:"pointer"}}>&#x1F5D1;</button>
-                  <a href={emailWelcome(r)} target="_blank" rel="noopener" title="Welcome Email" style={{padding:"3px 6px",background:"#00A3E0",color:"#fff",borderRadius:4,fontSize:9,fontWeight:700,textDecoration:"none"}}>&#x1F4E7;</a>
+                  <button onClick={()=>sendEmail(emailWelcome(r))} title="Welcome Email (.eml → opens in Outlook with PDF attached)" style={{padding:"3px 6px",background:"#00A3E0",color:"#fff",borderRadius:4,fontSize:9,fontWeight:700,border:"none",cursor:"pointer"}}>&#x1F4E7;</button>
                 </div></td>}
               </tr>)}</tbody>
             </table></div>
