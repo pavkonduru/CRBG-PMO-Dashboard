@@ -208,25 +208,66 @@ const DEFAULT_RESOURCES=[
 ];
 
 /* ══════════ EMAIL GENERATORS ══════════ */
+// Helper: build a mailto: URL that Outlook renders correctly.
+// - TO address must NOT be encodeURIComponent'd (that encodes @ → %40, breaking some clients).
+// - Body line breaks must be \r\n so encodeURIComponent produces %0D%0A (Outlook requirement).
+const _nl="\r\n";
 const emailWelcome=(r)=>{
+  const to=r.email||"";
   const cc="ususicrbgghpmoteam@deloitte.com";
   const sub=encodeURIComponent("Welcome to Corebridge- Onboarding Formalities");
   const name1=r.name.includes(",")?r.name.split(",")[0].trim():r.name.split(" ")[0];
-  const body=encodeURIComponent("Hi "+name1+" - Welcome to Corebridge Team!\n\nCorebridge Financial is a leading provider of retirement, life insurance, and institutional solutions, empowering individuals and organizations to secure their financial futures.\n\nYou will be a part of \""+(r.initiative||"Modernization")+"\" workstream.\n\nPlease follow the below steps to complete your on-boarding:\n\n1. Alignment & Leads: You will be part of the "+(r.function||"ADR / Data and Reporting")+" function. Your functional lead will be "+(r.manager||"[TBD]")+".\n\n2. Charge Code: Please check with your Function lead on the WBS to update both MySource & DTE.\n\n3. Role Start: Your role start date is "+(r.onboardingDate||"[TBD]")+". Please charge your hours in DTE starting this date.\n\n4. Know your Leadership: The below links will help you understand the leadership structure.\n\nIf you have any questions at any point, please reach out- US USI CRBG GH PMO Team (ususicrbgghpmoteam@deloitte.com).\n\nThank you,\nCRBG PMO Team\n\n[Please attach: CRBG PMO Referrence Document_v2.pdf]");
-  return "mailto:"+encodeURIComponent(r.email||"")+"?cc="+encodeURIComponent(cc)+"&subject="+sub+"&body="+body;
+  const body=encodeURIComponent(
+    "Hi "+name1+" - Welcome to Corebridge Team!"+_nl+_nl+
+    "Corebridge Financial is a leading provider of retirement, life insurance, and institutional solutions, empowering individuals and organizations to secure their financial futures."+_nl+_nl+
+    "You will be a part of \""+(r.initiative||"Modernization")+"\" workstream."+_nl+_nl+
+    "Please follow the below steps to complete your on-boarding:"+_nl+_nl+
+    "1. Alignment & Leads: You will be part of the "+(r.function||"ADR / Data and Reporting")+" function. Your functional lead will be "+(r.manager||"[TBD]")+"."+_nl+_nl+
+    "2. Charge Code: Please check with your Function lead on the WBS to update both MySource & DTE."+_nl+_nl+
+    "3. Role Start: Your role start date is "+(r.onboardingDate||"[TBD]")+". Please charge your hours in DTE starting this date."+_nl+_nl+
+    "4. Know your Leadership: The below links will help you understand the leadership structure."+_nl+_nl+
+    "If you have any questions at any point, please reach out- US USI CRBG GH PMO Team (ususicrbgghpmoteam@deloitte.com)."+_nl+_nl+
+    "Thank you,"+_nl+
+    "CRBG PMO Team"+_nl+_nl+
+    "[Please attach: CRBG PMO Referrence Document_v2.pdf]"
+  );
+  return "mailto:"+to+"?cc="+encodeURIComponent(cc)+"&subject="+sub+"&body="+body;
 };
 const emailAccessRequest=(r)=>{
   const cc="ususicrbgghpmoteam@deloitte.com";
   const sub=encodeURIComponent("Action RQD: Onboarding New Deloitte Team Members - Upcoming Access request");
-  const body=encodeURIComponent("Hi "+(r.crbgManager||"[Approver Name]")+",\n\nI hope this message finds you well!\n\nI wanted to let you know that the below mentioned practitioners will be joining the "+(r.function||"ADR / Data and Reporting")+" team. In the coming days, you will receive requests to approve credentials and system access relevant for their role. Request you to please assist in approving the same.\n\nPractitioner Name\n"+r.name+"\n\nIf you have any questions at any point, please reach out- US USI CRBG GH PMO Team (ususicrbgghpmoteam@deloitte.com).\n\nThankyou,\nCRBG PMO Team");
-  return "mailto:?cc="+encodeURIComponent(cc)+"&subject="+sub+"&body="+body;
+  const body=encodeURIComponent(
+    "Hi "+(r.crbgManager||"[Approver Name]")+","+_nl+_nl+
+    "I hope this message finds you well!"+_nl+_nl+
+    "I wanted to let you know that the below mentioned practitioners will be joining the "+(r.function||"ADR / Data and Reporting")+" team. In the coming days, you will receive requests to approve credentials and system access relevant for their role. Request you to please assist in approving the same."+_nl+_nl+
+    "Practitioner Name"+_nl+
+    r.name+_nl+_nl+
+    "If you have any questions at any point, please reach out- US USI CRBG GH PMO Team (ususicrbgghpmoteam@deloitte.com)."+_nl+_nl+
+    "Thank you,"+_nl+
+    "CRBG PMO Team"
+  );
+  return "mailto:ususicrbgghpmoteam@deloitte.com?cc="+encodeURIComponent(cc)+"&subject="+sub+"&body="+body;
 };
 const emailOnboardingNotification=(r)=>{
   const cc="ususicrbgghpmoteam@deloitte.com";
   const today=new Date().toLocaleDateString("en-US",{month:"numeric",day:"numeric",year:"numeric"});
   const sub=encodeURIComponent("CRBG- GH | Onboarding | "+(r.initiative||"Modernization")+" | "+r.name+" | "+today);
-  const body=encodeURIComponent("Hi Team,\n\nWe have a new team member getting onboarded. The details of the same are placed below. Could you please initiate the onboarding:\n\nName\t"+r.name+"\nDeloitte Email ID\t"+r.email+"\nLocation\t"+(r.location||"[TBD]")+"\nWorkstream\t"+(r.initiative||"Modernization")+"\nFunction/Sub-Function\t"+(r.function||"ADR / Data and Reporting")+"\nCRBG Manager Name\t"+(r.crbgManager||"[TBD]")+"\n\nWBS Code: "+(r.wbsCode||"COR02505-01")+"\nSOW: CRBFTQ00000932\n\nIf you have any questions at any point, please reach out- US USI CRBG GH PMO Team (ususicrbgghpmoteam@deloitte.com).\n\nThank you,\nCRBG PMO Team");
-  return "mailto:?cc="+encodeURIComponent(cc)+"&subject="+sub+"&body="+body;
+  const body=encodeURIComponent(
+    "Hi Team,"+_nl+_nl+
+    "We have a new team member getting onboarded. The details of the same are placed below. Could you please initiate the onboarding:"+_nl+_nl+
+    "Name                    \t"+r.name+_nl+
+    "Deloitte Email ID       \t"+r.email+_nl+
+    "Location                \t"+(r.location||"[TBD]")+_nl+
+    "Workstream              \t"+(r.initiative||"Modernization")+_nl+
+    "Function/Sub-Function   \t"+(r.function||"ADR / Data and Reporting")+_nl+
+    "CRBG Manager Name       \t"+(r.crbgManager||"[TBD]")+_nl+_nl+
+    "WBS Code: "+(r.wbsCode||"COR02505-01")+_nl+
+    "SOW: CRBFTQ00000932"+_nl+_nl+
+    "If you have any questions at any point, please reach out- US USI CRBG GH PMO Team (ususicrbgghpmoteam@deloitte.com)."+_nl+_nl+
+    "Thank you,"+_nl+
+    "CRBG PMO Team"
+  );
+  return "mailto:ususicrbgghpmoteam@deloitte.com?cc="+encodeURIComponent(cc)+"&subject="+sub+"&body="+body;
 };
 
 /* ══════════ UTILS ══════════ */
