@@ -639,7 +639,7 @@ function App(){
   const NAV=[{id:"overview",icon:"\uD83D\uDCCA",label:"PMO Dashboard"},{id:"roster",icon:"\uD83D\uDC65",label:"Resource Tracker"},{id:"analytics",icon:"\uD83D\uDCC8",label:"Analytics & Reports"}];
   if(!loaded)return <div style={{display:"flex",justifyContent:"center",alignItems:"center",height:"100vh",color:"#555"}}>Loading portal...</div>;
 
-  return <div style={{display:"flex",flexDirection:"column",minHeight:"calc(100vh / 0.85)"}}>
+  return <div style={{display:"flex",flexDirection:"column",height:"calc(100vh / 0.85)",overflow:"hidden"}}>
     <div style={{height:4,background:"linear-gradient(90deg,#86BC25,#86EB22,#3FC3EC)",flexShrink:0}}/>
     <div style={{background:"#282728",padding:"12px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,flexShrink:0}}>
       <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -662,7 +662,7 @@ function App(){
         </>}
       </div>
     </div>
-    <div style={{display:"flex",flex:1}}>
+    <div style={{display:"flex",flex:1,minHeight:0}}>
       {sideOpen&&<div className="no-print" style={{width:200,background:"#282728",padding:"12px 0",flexShrink:0,overflowY:"auto"}}>
         {NAV.map(n=><button key={n.id} onClick={()=>setPage(n.id)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",background:page===n.id?"rgba(134,188,37,0.15)":"transparent",border:"none",borderLeft:page===n.id?"3px solid #86BC25":"3px solid transparent",color:page===n.id?"#86EB22":"#E6E6E6",fontSize:12,fontWeight:page===n.id?700:400,cursor:"pointer",textAlign:"left"}}><span style={{fontSize:14}}>{n.icon}</span>{n.label}</button>)}
         {isAdmin&&<div style={{padding:16,borderTop:"1px solid #444",marginTop:12,display:"flex",flexDirection:"column",gap:8}}>
@@ -670,7 +670,7 @@ function App(){
           <button onClick={reset} style={{fontSize:10,color:"#888",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}}>Reset to workbook data</button>
         </div>}
       </div>}
-      <div style={{flex:1,padding:"20px 28px",overflowY:"auto",height:"calc(100vh / 0.85 - 52px)"}}>
+      <div style={{flex:1,padding:"20px 28px",overflowY:"auto",minHeight:0}}>
         {!isAdmin&&<div className="no-print" style={{background:"#E3F2FD",border:"1px solid #00A3E0",borderRadius:8,padding:"10px 18px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:12,color:"#005587"}}>&#x1F512; <b>Leadership View</b> &mdash; read-only. PMO login required to manage resources and trigger onboarding emails.</div><button onClick={()=>setShowLogin(true)} style={{padding:"4px 14px",background:"#00A3E0",color:"#fff",border:"none",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer"}}>PMO Login</button></div>}
 
         {page==="overview"&&<>
