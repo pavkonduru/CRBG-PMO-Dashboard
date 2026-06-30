@@ -9,6 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:'Open Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F5F5F5;color:#282728;zoom:0.85;}
@@ -270,6 +271,96 @@ const emailOnboardingNotification=(r)=>{
   return "mailto:ususicrbgghpmoteam@deloitte.com?cc="+encodeURIComponent(cc)+"&subject="+sub+"&body="+body;
 };
 
+/* ══════════ SQLite DB LAYER ══════════ */
+const DB_SK="crbg-pmo-db-v1";
+const OLD_SK="crbg-pmo-portal-v2";
+let _db=null;
+
+const DB_COLS=["id","name","email","level","region","location","status",
+  "onboardingDate","offboardingDate","pmdLead","smLead","manager",
+  "feedbackProvider","initiativeCluster","initiative","function",
+  "subFunction","crbgManager","vdi","crbgEmail","mobile","wbsCode","category","active"];
+
+const DB_SCHEMA=`CREATE TABLE IF NOT EXISTS resources (
+  id INTEGER PRIMARY KEY,
+  name TEXT, email TEXT, level TEXT, region TEXT, location TEXT,
+  status TEXT, onboardingDate TEXT, offboardingDate TEXT,
+  pmdLead TEXT, smLead TEXT, manager TEXT, feedbackProvider TEXT,
+  initiativeCluster TEXT, initiative TEXT, function TEXT,
+  subFunction TEXT, crbgManager TEXT, vdi TEXT, crbgEmail TEXT,
+  mobile TEXT, wbsCode TEXT, category TEXT, active TEXT
+)`;
+
+async function openDB(){
+  const SQL=await initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`});
+  const saved=localStorage.getItem(DB_SK);
+  if(saved){
+    // decode base64 in chunks to avoid call stack overflow on large DBs
+    const b64=atob(saved);
+    const buf=new Uint8Array(b64.length);
+    for(let i=0;i<b64.length;i++)buf[i]=b64.charCodeAt(i);
+    _db=new SQL.Database(buf);
+  } else {
+    _db=new SQL.Database();
+    _db.run(DB_SCHEMA);
+    // migrate old localStorage JSON data if present, else seed defaults
+    let seed=DEFAULT_RESOURCES;
+    try{const old=localStorage.getItem(OLD_SK);if(old)seed=JSON.parse(old);}catch(e){}
+    seed.forEach(r=>_dbInsert(r));
+    localStorage.removeItem(OLD_SK);
+    _persistDB();
+  }
+  return _db;
+}
+
+function _persistDB(){
+  const raw=_db.export();
+  let b64="";
+  const chunk=8192;
+  for(let i=0;i<raw.length;i+=chunk)b64+=String.fromCharCode.apply(null,raw.subarray(i,i+chunk));
+  localStorage.setItem(DB_SK,btoa(b64));
+}
+
+function _dbInsert(r){
+  const vals=DB_COLS.map(c=>r[c]!==undefined?r[c]:null);
+  _db.run(`INSERT OR REPLACE INTO resources (${DB_COLS.join(",")}) VALUES (${DB_COLS.map(()=>"?").join(",")})`,vals);
+}
+
+function _dbUpdate(r){
+  const setCols=DB_COLS.filter(c=>c!=="id").map(c=>`${c}=?`).join(",");
+  const vals=[...DB_COLS.filter(c=>c!=="id").map(c=>r[c]!==undefined?r[c]:null),r.id];
+  _db.run(`UPDATE resources SET ${setCols} WHERE id=?`,vals);
+}
+
+function _dbDelete(id){_db.run("DELETE FROM resources WHERE id=?",[id]);}
+
+function _dbAll(){
+  const res=_db.exec("SELECT * FROM resources ORDER BY id");
+  if(!res.length)return[];
+  const{columns,values}=res[0];
+  return values.map(row=>{const obj={};columns.forEach((c,i)=>obj[c]=row[i]);return obj;});
+}
+
+function exportDB(){
+  const raw=_db.export();
+  const blob=new Blob([raw],{type:"application/octet-stream"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="CRBG_PMO_Data.db";a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importDBFile(file,onDone){
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const SQL=await initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`});
+    _db=new SQL.Database(new Uint8Array(e.target.result));
+    _persistDB();
+    onDone(_dbAll());
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 /* ══════════ UTILS ══════════ */
 const fmtDate=d=>{if(!d)return"\u2014";try{const dt=new Date(d);if(isNaN(dt))return d;return dt.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"2-digit"})}catch(e){return d}};
 const fmtDateInput=d=>{if(!d)return"";if(d instanceof Date)return d.toISOString().slice(0,10);const s=String(d).trim();if(s.match(/^\d{4}-\d{2}-\d{2}/))return s.slice(0,10);try{const dt=new Date(s);if(!isNaN(dt))return dt.toISOString().slice(0,10)}catch(e){}return""};
@@ -442,7 +533,6 @@ const ImportModal=({onClose,onImport,currentCount})=>{
 
 /* ══════════ MAIN APP ══════════ */
 function App(){
-  const SK="crbg-pmo-portal-v2";
   const [resources,setResources]=React.useState([]);
   const [page,setPage]=React.useState("overview");
   const [selId,setSelId]=React.useState(null);
@@ -459,18 +549,19 @@ function App(){
   const [fManager,setFManager]=React.useState("");
   const [fLevel,setFLevel]=React.useState("");
   React.useEffect(()=>{try{if(localStorage.getItem("crbg-pmo-auth")==="pmo")setIsAdmin(true)}catch(e){}},[]);
-  React.useEffect(()=>{try{const s=localStorage.getItem(SK);setResources(s?JSON.parse(s):DEFAULT_RESOURCES)}catch(e){setResources(DEFAULT_RESOURCES)}setLoaded(true)},[]);
-  React.useEffect(()=>{if(!loaded)return;try{localStorage.setItem(SK,JSON.stringify(resources))}catch(e){}},[resources,loaded]);
+  React.useEffect(()=>{openDB().then(()=>{setResources(_dbAll());setLoaded(true);}).catch(()=>{setResources(DEFAULT_RESOURCES);setLoaded(true);});},[]);
 
-  const save=u=>{if(!isAdmin)return;setResources(p=>p.map(i=>i.id===u.id?u:i));setSelId(null)};
-  const deleteRes=id=>{if(!isAdmin)return;setResources(p=>p.filter(i=>i.id!==id));setSelId(null)};
-  const add=n=>{if(!isAdmin)return;setResources(p=>[...p,n])};
+  const save=u=>{if(!isAdmin)return;_dbUpdate(u);_persistDB();setResources(_dbAll());setSelId(null)};
+  const deleteRes=id=>{if(!isAdmin)return;_dbDelete(id);_persistDB();setResources(_dbAll());setSelId(null)};
+  const add=n=>{if(!isAdmin)return;_dbInsert(n);_persistDB();setResources(_dbAll())};
   const logout=()=>{setIsAdmin(false);try{localStorage.removeItem("crbg-pmo-auth")}catch(e){}};
-  const reset=()=>{if(!isAdmin)return;if(confirm("Reset ALL data to original workbook defaults? This cannot be undone.")){setResources(DEFAULT_RESOURCES);try{localStorage.removeItem(SK)}catch(e){}}};
+  const reset=()=>{if(!isAdmin)return;if(confirm("Reset ALL data to original workbook defaults? This cannot be undone.")){_db.run("DELETE FROM resources");DEFAULT_RESOURCES.forEach(r=>_dbInsert(r));_persistDB();setResources(_dbAll());}};
   const importResources=(newData,mode)=>{
-    if(mode==="replace"){setResources(newData);try{localStorage.removeItem(SK)}catch(e){}}
-    else setResources(prev=>{const existing=new Set(prev.map(r=>(r.email||"").toLowerCase()));const toAdd=newData.filter(r=>r.email&&!existing.has(r.email.toLowerCase()));return[...prev,...toAdd]});
+    if(mode==="replace"){_db.run("DELETE FROM resources");newData.forEach(r=>_dbInsert(r));}
+    else{const existing=new Set(_dbAll().map(r=>(r.email||"").toLowerCase()));newData.filter(r=>r.email&&!existing.has(r.email.toLowerCase())).forEach(r=>_dbInsert(r));}
+    _persistDB();setResources(_dbAll());
   };
+  const handleImportDB=()=>{const inp=document.createElement("input");inp.type="file";inp.accept=".db";inp.onchange=e=>{if(e.target.files[0])importDBFile(e.target.files[0],data=>setResources(data))};inp.click();};
   const nid=resources.length?Math.max(...resources.map(i=>i.id||0))+1:1;
 
   const total=resources.length;
@@ -527,6 +618,8 @@ function App(){
           <button onClick={()=>setShowAdd(true)} style={{padding:"5px 14px",background:"#86BC25",color:"#fff",border:"none",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer"}}>+ Add</button>
           <button onClick={()=>setShowImport(true)} style={{padding:"5px 14px",background:"#00A3E0",color:"#fff",border:"none",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer"}}>&#x1F4CA; Import Excel</button>
           <button onClick={()=>downloadCSV(resources,"CRBG_Resource_Tracker")} style={{padding:"5px 12px",background:"transparent",border:"1px solid #555",borderRadius:6,fontSize:11,color:"#E6E6E6",cursor:"pointer"}}>Export CSV</button>
+          <button onClick={exportDB} title="Download SQLite .db file for handover" style={{padding:"5px 12px",background:"transparent",border:"1px solid #86BC25",borderRadius:6,fontSize:11,color:"#86BC25",cursor:"pointer"}}>&#x1F4BE; Export DB</button>
+          <button onClick={handleImportDB} title="Load a .db file from another user" style={{padding:"5px 12px",background:"transparent",border:"1px solid #00A3E0",borderRadius:6,fontSize:11,color:"#00A3E0",cursor:"pointer"}}>&#x1F4C2; Load DB</button>
           <button onClick={()=>window.print()} style={{padding:"5px 12px",background:"transparent",border:"1px solid #555",borderRadius:6,fontSize:11,color:"#E6E6E6",cursor:"pointer"}}>Print</button>
           <button onClick={logout} style={{padding:"5px 12px",background:"transparent",border:"1px solid #DA291C",borderRadius:6,fontSize:11,color:"#DA291C",cursor:"pointer"}}>Logout</button>
         </>:<>
